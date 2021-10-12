@@ -1,0 +1,85 @@
+<body style="background-color: #36393E">
+<script src="src/Logger.js"></script>
+<!-- <link href="src/EditArea.css" type="text/css" rel="stylesheet"> -->
+<img onclick="clearLogArea();logToArea('Konsol temizlendi...')" class="clear_button" src="assets/clear.png"
+     width="54" height="54" alt="Temizle">
+<label for="codeArea"></label>
+<textarea class="code" id="codeArea" style="height: 650px; width: 650px; background-color: #57F287"></textarea>
+<script></script>
+<!-- <script src="src/EditArea.js"></script> -->
+<canvas class="scene" width="550" height="550" id="canvas"></canvas>
+<span class="console" id="console" style="background-color: #FEE75C"></span>
+<img onclick="run()" class="start_button" src="assets/start.png" width="54" height="54" alt="Başlat">
+<img onclick="stop()" class="stop_button" src="assets/stop.png" width="54" height="54" alt="Durdur">
+</body>
+<script src="src/GameEngine.js"></script>
+<script src="src/Compiler.js"></script>
+<script>
+    document.getElementById("codeArea").value = localStorage.getItem("code") || "";
+    setInterval(() => {
+        code = document.getElementById("codeArea").value;
+        localStorage.setItem("code", code);
+    });
+</script>
+<style>
+    canvas {
+        border: 1px solid black;
+        position: absolute;
+        top: 0;
+        left: 0;
+    }
+
+    .code {
+        position: absolute;
+        width: 650px;
+        height: 650px;
+        min-width: 650px;
+        max-width: 650px;
+        min-height: 650px;
+        max-height: 650px;
+        border: 1px solid black;
+        font-family: Courier, serif;
+    }
+
+    .start_button {
+        position: absolute;
+        left: 670px;
+        top: 200px;
+    }
+
+    .stop_button {
+        position: absolute;
+        left: 670px;
+        top: 280px;
+    }
+
+    .clear_button {
+        position: absolute;
+        left: 670px;
+        bottom: 50px;
+    }
+
+    .scene {
+        position: absolute;
+        top: 8px;
+        left: 737px;
+    }
+
+    .console {
+        border: 1px solid black;
+        position: absolute;
+        left: auto;
+        top: auto;
+        bottom: 38px;
+        right: 77px;
+        width: 550px;
+        height: 82px;
+        min-width: 550px;
+        max-width: 550px;
+        min-height: 82px;
+        max-height: 82px;
+        font-family: Courier, serif;
+        overflow-y: scroll;
+        overflow-x: scroll;
+    }
+</style>

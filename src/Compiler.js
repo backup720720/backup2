@@ -25,7 +25,9 @@ let heldKeys = {};
 let canvasFocused = false;
 let _repeatLimit = 1024;
 
-addEventListener("keydown", ev => heldKeys[ev.key]);
+addEventListener("keydown", ev => {
+    heldKeys[ev.key] = ev.key;
+});
 addEventListener("keyup", ev => delete heldKeys[ev.key]);
 addEventListener("blur", () => {
     heldKeys = {};
@@ -45,8 +47,8 @@ const compile = {
         }[t];
         if (!model) throw new CompileError(t + " beklenmiyordu!");
         const entity = new Entity({
-            x: 0,
-            y: 0,
+            x: 225,
+            y: 225,
             model: new model(1, 1)
         });
         uniqueEntities[entity.uuid] = entity;
@@ -54,7 +56,7 @@ const compile = {
     },
     set: (a, b) => {
         if ("0123456789".split("").some(i => i === a.charAt(0))) throw new CompileError(a.charAt(0) + " beklenmiyordu!");
-        let e = a.split("").filter(i => !"abcçdefghıijklmnoprştuüvyzqwx0123456789".split("").includes(i))[0];
+        let e = a.split("").filter(i => !"abcçdefghıijklmnoöprsştuüvyzqwx0123456789".split("").includes(i))[0];
         if (e) throw new CompileError(e + " beklenmiyordu!");
         vars.set(a, b);
     },
@@ -183,8 +185,10 @@ const compile = {
                 mw += i.charAt(j);
             } else if (mw.split("").filter(c => c !== " ").length > 0) {
                 let ww = mw;
-                if (/tuş.+/.test(mw)) {
-                    mw = heldKeys[mw.split("").slice(3).join("")] ? 1 : 0;
+                let ky = mw.split("").slice(3).join("");
+                if (/tuş([\w|\d|\s]+)/.test(mw)) {
+                    if(ky.split("").filter(hh=> hh !== " ").length > 0) ky = ky.replace(/ /g, "");
+                    mw = heldKeys[ky] ? 1 : 0;
                 } else mw = compile.int(mw);
                 val.push({
                     start: j - (ww.length - 1),
@@ -196,11 +200,16 @@ const compile = {
             }
         }
         if (mw.split("").filter(c => c !== " ").length > 0) {
+            let ky = mw.split("").slice(3).join("");
+            if (/tuş([\w|\d|\s]+)/.test(mw)) {
+                if(ky.split("").filter(hh=> hh !== " ").length > 0) ky = ky.replace(/ /g, "");
+                    mw = heldKeys[ky] ? 1 : 0;
+            } else mw = compile.int(mw);
             val.push({
                 start: i.length - 1 - (mw.length - 1),
                 end: i.length - 1,
                 type: "auto",
-                value: compile.int(mw)
+                value: mw
             });
         }
         val = val.sort((a, b) => a.start < b.start ? -1 : 1);
@@ -287,13 +296,14 @@ function run() {
     });
     scene.addEntity(background);
     const lines = code.split("\n");
+    lines.push("");
     let ifStatements = [];
     let whileStatements = [];
     let finishedWhiles = [];
     let intervalStatements = [];
     let finishedIntervals = [];
     let __threads = 1;
-    // TODO: switch, functions, wait, arrays, objects
+    // TODO: switch, functions, wait, arrays, objects, random, math functions
     const processWhile = () => {
         const lastWh = finishedWhiles[finishedWhiles.length - 1];
         const th = __threads++;
@@ -316,10 +326,11 @@ function run() {
                         compileLine(i, j, th, false, id);
                         if(j === lastInt.lines.length-1) r = true;
                     }); // TODO: a + 1 doesnt work in intervals
-                }
+                } else r = true;
             }
         });
     }
+    let intervalIf = 0;
     const compileLine = (l, j, thread = 0, w = false, intervalId = null) => {
         if (l.replace(/ /g, "") === "}" && ifStatements.length > 0) {
             return ifStatements.pop();
@@ -333,18 +344,29 @@ function run() {
             });
         }
         if (ifStatements.length > 0) {
-            let lastIf = ifStatements[ifStatements.length - 1];
-            let st = compile.auto(lastIf.statement);
-            if (st === lastIf.else) return;
+            let status = true;
+            ifStatements.forEach(lastIf => {
+                let st = compile.auto(lastIf.statement);
+                if ((st != null && st != "0") === lastIf.else) status = false;
+            })
+            if(!status) return;
         }
 
 
         let lastInterval = intervalStatements[intervalStatements.length - 1];
-        if (l.replace(/ /g, "") === "}" && intervalStatements.length > 0) {
+        if (l.replace(/ /g, "") === "}" && intervalStatements.length > 0 && intervalIf < 1) {
             finishedIntervals.push(lastInterval);
             return intervalStatements.pop();
         }
+        if (l.replace(/ /g, "") === "}" && intervalIf > 0) {
+            intervalIf--;
+        }
         if (lastInterval) {
+            let ll = l;
+            while(ll.startsWith(" ")) ll = ll.replace(" ", "");
+            if(ll.startsWith("eğer ")) {
+                intervalIf++;
+            }
             return intervalStatements[intervalStatements.length - 1].lines.push(l);
         }
         if (finishedIntervals.length > 0 && intervalId == null) {
@@ -377,7 +399,7 @@ function run() {
                 }
                 compile.set(c[0], compile.auto(c[1]));
                 return;
-            }
+            }// TODO: += -= *= /=
             switch (a) {
                 case "yaz":
                     alert(compile.auto(b.join(" ")));
@@ -402,6 +424,7 @@ function run() {
                     break;
                 case "canlı":
                     let entity = uniqueEntities[compile.auto(b[1])];
+	    b[2] = b.slice(2).join(" ");
                     switch (b[0]) {
                         case "oluştur":
                             compile.createEntity();

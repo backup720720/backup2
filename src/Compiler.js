@@ -1,3 +1,5 @@
+// TODO: switch, functions, wait, arrays, objects, random, math functions
+
 class CompileError extends Error {
 }
 
@@ -25,7 +27,9 @@ let heldKeys = {};
 let canvasFocused = false;
 let _repeatLimit = 1024;
 
-addEventListener("keydown", ev => heldKeys[ev.key]);
+addEventListener("keydown", ev => {
+    heldKeys[ev.key] = ev.key;
+});
 addEventListener("keyup", ev => delete heldKeys[ev.key]);
 addEventListener("blur", () => {
     heldKeys = {};
@@ -45,8 +49,8 @@ const compile = {
         }[t];
         if (!model) throw new CompileError(t + " beklenmiyordu!");
         const entity = new Entity({
-            x: 0,
-            y: 0,
+            x: 225,
+            y: 225,
             model: new model(1, 1)
         });
         uniqueEntities[entity.uuid] = entity;
@@ -54,9 +58,37 @@ const compile = {
     },
     set: (a, b) => {
         if ("0123456789".split("").some(i => i === a.charAt(0))) throw new CompileError(a.charAt(0) + " beklenmiyordu!");
-        let e = a.split("").filter(i => !"abcçdefghıijklmnoprştuüvyzqwx0123456789".split("").includes(i))[0];
+        let e = a.split("").filter(i => !"abcçdefghıijklmnoöprsştuüvyzqwx0123456789".split("").includes(i))[0];
         if (e) throw new CompileError(e + " beklenmiyordu!");
         vars.set(a, b);
+    },
+    add: (a, b) => {
+        if ("0123456789".split("").some(i => i === a.charAt(0))) throw new CompileError(a.charAt(0) + " beklenmiyordu!");
+        let e = a.split("").filter(i => !"abcçdefghıijklmnoöprsştuüvyzqwx0123456789".split("").includes(i))[0];
+        if (e) throw new CompileError(e + " beklenmiyordu!");
+        if(!vars.has(a)) vars.set(a, 0);
+        vars.set(a, vars.get(a) + b);
+    },
+    subtract: (a, b) => {
+        if ("0123456789".split("").some(i => i === a.charAt(0))) throw new CompileError(a.charAt(0) + " beklenmiyordu!");
+        let e = a.split("").filter(i => !"abcçdefghıijklmnoöprsştuüvyzqwx0123456789".split("").includes(i))[0];
+        if (e) throw new CompileError(e + " beklenmiyordu!");
+        if(!vars.has(a)) vars.set(a, 0);
+        vars.set(a, vars.get(a) - b);
+    },
+    multiply: (a, b) => {
+        if ("0123456789".split("").some(i => i === a.charAt(0))) throw new CompileError(a.charAt(0) + " beklenmiyordu!");
+        let e = a.split("").filter(i => !"abcçdefghıijklmnoöprsştuüvyzqwx0123456789".split("").includes(i))[0];
+        if (e) throw new CompileError(e + " beklenmiyordu!");
+        if(!vars.has(a)) vars.set(a, 0);
+        vars.set(a, vars.get(a) * b);
+    },
+    divide: (a, b) => {
+        if ("0123456789".split("").some(i => i === a.charAt(0))) throw new CompileError(a.charAt(0) + " beklenmiyordu!");
+        let e = a.split("").filter(i => !"abcçdefghıijklmnoöprsştuüvyzqwx0123456789".split("").includes(i))[0];
+        if (e) throw new CompileError(e + " beklenmiyordu!");
+        if(!vars.has(a)) vars.set(a, 0);
+        vars.set(a, vars.get(a) / b);
     },
     auto: i => {
         i = i || "";
@@ -183,8 +215,10 @@ const compile = {
                 mw += i.charAt(j);
             } else if (mw.split("").filter(c => c !== " ").length > 0) {
                 let ww = mw;
-                if (/tuş.+/.test(mw)) {
-                    mw = heldKeys[mw.split("").slice(3).join("")] ? 1 : 0;
+                let ky = mw.split("").slice(3).join("");
+                if (/tuş([\w|\d|\s]+)/.test(mw)) {
+                    if(ky.split("").filter(hh=> hh !== " ").length > 0) ky = ky.replace(/ /g, "");
+                    mw = heldKeys[ky] ? 1 : 0;
                 } else mw = compile.int(mw);
                 val.push({
                     start: j - (ww.length - 1),
@@ -196,11 +230,16 @@ const compile = {
             }
         }
         if (mw.split("").filter(c => c !== " ").length > 0) {
+            let ky = mw.split("").slice(3).join("");
+            if (/tuş([\w|\d|\s]+)/.test(mw)) {
+                if(ky.split("").filter(hh=> hh !== " ").length > 0) ky = ky.replace(/ /g, "");
+                    mw = heldKeys[ky] ? 1 : 0;
+            } else mw = compile.int(mw);
             val.push({
                 start: i.length - 1 - (mw.length - 1),
                 end: i.length - 1,
                 type: "auto",
-                value: compile.int(mw)
+                value: mw
             });
         }
         val = val.sort((a, b) => a.start < b.start ? -1 : 1);
@@ -262,14 +301,16 @@ const compile = {
         }
         res.forEach(a => i = i.replace(`"${a}"`, compile.string(a)));
         if (res.length > 0) return i;
-        //if ((i.startsWith("\"") && i.endsWith("\"")) || (i.startsWith("\'") && i.endsWith("\'"))) return compile.string(i);
         return vars.has(i.replace(/ /g, "")) ? vars.get(i.replace(/ /g, "")) : compile.int(i);
     }
 };
 
 let intervalManager = new IntervalManager();
+let _waits = {};
+
 
 function stop() {
+    _waits = {};
     vars = new Map();
     scene.entities = new Map();
     uniqueEntities = {};
@@ -287,13 +328,14 @@ function run() {
     });
     scene.addEntity(background);
     const lines = code.split("\n");
+    lines.push("");
     let ifStatements = [];
     let whileStatements = [];
     let finishedWhiles = [];
     let intervalStatements = [];
     let finishedIntervals = [];
+    let intervalIf = 0;
     let __threads = 1;
-    // TODO: switch, functions, wait, arrays, objects
     const processWhile = () => {
         const lastWh = finishedWhiles[finishedWhiles.length - 1];
         const th = __threads++;
@@ -313,10 +355,24 @@ function run() {
                 r = false;
                 if (compile.auto(lastInt.statement)) {
                     lastInt.lines.forEach((i, j) => {
-                        compileLine(i, j, th, false, id);
-                        if(j === lastInt.lines.length-1) r = true;
-                    }); // TODO: a + 1 doesnt work in intervals
-                }
+                        if((_waits[th] || 0) < Date.now()) {
+                            compileLine(i, j, th, false, id);
+                            if(j === lastInt.lines.length-1) r = true;
+                        }
+                        r = true;
+                    });
+                } else r = true;
+            }
+        });
+    }
+    const compileLines = (lines, thread, w = false, intervalId = null) => {
+        let index = 0;
+        let interval = intervalManager.createInterval(() => {
+            const line = lines[index];
+            if(!line && line !== "") return clearInterval(interval);
+            if((_waits[thread] || 0) < Date.now()) {
+                compileLine(line, index, thread, w, intervalId);
+                index++;
             }
         });
     }
@@ -333,18 +389,29 @@ function run() {
             });
         }
         if (ifStatements.length > 0) {
-            let lastIf = ifStatements[ifStatements.length - 1];
-            let st = compile.auto(lastIf.statement);
-            if (st === lastIf.else) return;
+            let status = true;
+            ifStatements.forEach(lastIf => {
+                let st = compile.auto(lastIf.statement);
+                if ((st != null && st != "0") === lastIf.else) status = false;
+            })
+            if(!status) return;
         }
 
 
         let lastInterval = intervalStatements[intervalStatements.length - 1];
-        if (l.replace(/ /g, "") === "}" && intervalStatements.length > 0) {
+        if (l.replace(/ /g, "") === "}" && intervalStatements.length > 0 && intervalIf < 1) {
             finishedIntervals.push(lastInterval);
             return intervalStatements.pop();
         }
+        if (l.replace(/ /g, "") === "}" && intervalIf > 0) {
+            intervalIf--;
+        }
         if (lastInterval) {
+            let ll = l;
+            while(ll.startsWith(" ")) ll = ll.replace(" ", "");
+            if(ll.startsWith("eğer ")) {
+                intervalIf++;
+            }
             return intervalStatements[intervalStatements.length - 1].lines.push(l);
         }
         if (finishedIntervals.length > 0 && intervalId == null) {
@@ -369,12 +436,32 @@ function run() {
             while (l.startsWith(" ")) l = l.split("").slice(1).join("");
             const a = l.split(" ")[0];
             const b = l.split(" ").slice(1);
-            if (/([\w|\d|\s]+)=.+/.test(l)) {
-                const c = l.split("=");
+            const confC = (a = "") => {
+                const c = l.split(a + "=");
                 c[1] = c.slice(1).join(" ");
                 while (c[0].endsWith(" ")) {
                     c[0] = c[0].split("").slice(0, c[0].length - 1).join("");
                 }
+                return c;
+            }
+            if (/([\w|\d|\s]+)\+=.+/.test(l)) {
+                const c = confC("+");
+                compile.add(c[0], compile.auto(c[1]));
+                return;
+            } else if (/([\w|\d|\s]+)\-=.+/.test(l)) {
+                const c = confC("-");
+                compile.subtract(c[0], compile.auto(c[1]));
+                return;
+            } else if (/([\w|\d|\s]+)\*=.+/.test(l)) {
+                const c = confC("*");
+                compile.multiply(c[0], compile.auto(c[1]));
+                return;
+            } else if (/([\w|\d|\s]+)\/=.+/.test(l)) {
+                const c = confC("/");
+                compile.divide(c[0], compile.auto(c[1]));
+                return;
+            } else if (/([\w|\d|\s]+)=.+/.test(l)) {
+                const c = confC();
                 compile.set(c[0], compile.auto(c[1]));
                 return;
             }
@@ -402,6 +489,7 @@ function run() {
                     break;
                 case "canlı":
                     let entity = uniqueEntities[compile.auto(b[1])];
+	    b[2] = b.slice(2).join(" ");
                     switch (b[0]) {
                         case "oluştur":
                             compile.createEntity();
@@ -469,6 +557,9 @@ function run() {
                         });
                     }
                     break;
+                case "bekle":
+                    _waits[thread] = Date.now() + ((compile.auto(b.join(" ")) * 1000) || 0);
+                    break;
                 default:
                     if (a) throw new CompileError(a + " beklenmiyordu!");
                     break;
@@ -479,7 +570,7 @@ function run() {
             logToArea("[HATA] " + (j + 1) + ". satırda hata çıktı, " + e.toString().replace("Error", "Hata"), "rgb(255, 0, 0)");
         }
     };
-    lines.forEach((i, j) => compileLine(i, j, 0));
+    compileLines(lines, 0);
     if (finishedWhiles.length > 0) {
         processWhile();
     }
